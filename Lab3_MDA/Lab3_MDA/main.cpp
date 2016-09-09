@@ -3,6 +3,9 @@ Name: George Wulfers
 Class: Adv Prog Concepts
 */
 
+// TODO(George): Separate things into separate files.
+// TOOD(George): Is this the best way to do this?
+
 #include <iostream>
 #include <random>
 #include <Windows.h>
@@ -13,12 +16,9 @@ Class: Adv Prog Concepts
 
 COORD pos = { 0, 0 };
 
-//int Cells[CellCount * CellCount] = { 0 };
-//int TBlock[TBlockWidth * TBlockHeight] = { 0, 1, 1, -1, 1, -1 };
-
 void GoToPos(int X, int Y)
 {
-	COORD pos = {X, Y};
+	COORD pos = {(short)X, (short)Y};
 	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), pos);
 }
 
@@ -75,6 +75,8 @@ public:
 
 	inline bool flipCell(TBlock t)
 	{
+		int flipCount = 0;
+
 		for (int row = pos.Y;
 			row < pos.Y + 2;
 			row++)
@@ -88,16 +90,18 @@ public:
 
 				if (cellTile == 0 && blockTile == 1)
 				{
+					flipCount++;
 					cells[row * CellCount + col] = blockTile;
 				}
 				else if (cellTile == 1 && blockTile == 0)
 				{
+					flipCount++;
 					cells[row * CellCount + col] = blockTile;
 				}
 			}
 		}
 
-		return true;
+		return (flipCount != 0);
 	}
 
 	int width;
@@ -105,12 +109,125 @@ public:
 	int cells[CellCount * CellCount];
 };
 
+void drawGrid(COORD location, Grid grid, TBlock tBlock)
+{
+	for (int row = 0;
+		row < CellCount;
+		row++)
+	{
+		for (int col = 0;
+			col < CellCount;
+			col++)
+		{
+			GoToPos(location.X + col, location.Y + row);
+
+			if (col >= pos.X && col < pos.X + TBlockWidth &&
+				row >= pos.Y && row < pos.Y + TBlockHeight)
+			{
+				int blockRow = row - pos.Y;
+				int blockCol = col - pos.X;
+				int tileID = tBlock.cells[(blockRow)* TBlockWidth + (blockCol)];
+				if (tileID >= 0)
+				{
+					SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_RED);
+					printf("%d", tileID);
+				}
+				else
+				{
+					SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_GREEN | FOREGROUND_BLUE);
+					printf("%d", grid.cells[row * CellCount + col]);
+				}
+			}
+			else
+			{
+				SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_GREEN | FOREGROUND_BLUE);
+				printf("%d", grid.cells[row * CellCount + col]);
+			}
+		}
+		printf("\n");
+	}
+}
+
+void drawOldGrid(COORD pos, Grid grid)
+{
+	for (int row = 0;
+		row < CellCount;
+		row++)
+	{
+		for (int col = 0;
+			col < CellCount;
+			col++)
+		{
+			GoToPos(pos.X + col, pos.Y + row);
+
+			SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_RED | FOREGROUND_BLUE);
+			printf("%d", grid.cells[row * CellCount + col]);
+		}
+		printf("\n");
+	}
+}
+
+void copyGrid(Grid& dest, Grid src)
+{
+	dest.width = src.width;
+	dest.height = src.height;
+
+	for (int row = 0;
+		row < src.height;
+		row++)
+	{
+		for (int col = 0;
+			col < src.height;
+			col++)
+		{
+			dest.cells[row*dest.width + col] = src.cells[row*src.width + col];
+		}
+	}
+}
+
+void drawCodex(COORD location, TBlock tBlock)
+{
+	for (int row = 0;
+		row < TBlockHeight;
+		row++)
+	{
+		for (int col = 0;
+			col < TBlockWidth;
+			col++)
+		{
+			GoToPos(location.X + col, location.Y + row);
+
+			int tile = tBlock.cells[row * TBlockWidth + col];
+
+			if (tile >= 0)
+			{
+				printf("%d", tile);
+			}
+			else
+			{
+				printf(" ");
+			}
+		}
+
+		printf("\n");
+	}
+}
+
+bool isKeyDown(unsigned int vkCode)
+{
+	return (bool)(GetKeyState(vkCode) & 0x80000);
+}
+
 int main()
 {
 	srand(0);
 
 	Grid grid;
+	Grid oldGrid;
+
 	grid.Initialize();
+
+	copyGrid(oldGrid, grid);
 
 	TBlock tBlock;
 	tBlock.Initialize();
@@ -131,31 +248,57 @@ int main()
 
 	printf("TBlock\n");
 
+	GoToPos(7, 0);
+
+	SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_GREEN | FOREGROUND_BLUE);
+
+	printf("CellBlock\n");
+
+	GoToPos(17, 0);
+
+	SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_RED | FOREGROUND_BLUE);
+
+	printf("OldCellBlock\n");
+
 	bool isRunning = true;
 
 	while (isRunning)
 	{
-		if (GetKeyState(VK_ESCAPE) & 0x80000)
+		if (isKeyDown(VK_ESCAPE))
 		{
 			isRunning = false;
 		}
 		
-		if (GetKeyState('D') & 0x8000)
+		if (isKeyDown('D'))
 		{
 			pos.X++;
 		}
-		else if (GetKeyState('A') & 0x8000)
+		else if (isKeyDown('A'))
 		{
 			pos.X--;
 		}
 
-		if (GetKeyState('W') & 0x8000)
+		if (isKeyDown('W'))
 		{
 			pos.Y--;
 		}
-		else if (GetKeyState('S') & 0x8000)
+		else if (isKeyDown('S'))
 		{
 			pos.Y++;
+		}
+		
+		if (isKeyDown(VK_RETURN))
+		{
+			Grid temp = grid;
+
+			if (grid.flipCell(tBlock))
+			{
+				copyGrid(oldGrid, temp);
+			}
+		}
+		else if (isKeyDown('R'))
+		{
+			grid.Initialize();
 		}
 
 		if (pos.X < 0)
@@ -176,86 +319,17 @@ int main()
 			pos.Y = CellCount - 2;
 		}
 
-		if (GetKeyState(VK_RETURN) & 0x8000)
-		{
-			grid.flipCell(tBlock);
-		}
-		else if (GetKeyState('R') & 0x8000)
-		{
-			grid.Initialize();
-		}
-
 		// DRAW CODE
 		SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_RED);
 
-		for (int row = 0;
-			row < TBlockHeight;
-			row++)
-		{
-			for (int col = 0;
-				col < TBlockWidth;
-				col++)
-			{
-				GoToPos(startPos.X + col, startPos.Y + spacing.Y + row);
+		GoToPos(0, 1);
+		printf("Pos: (%d, %d)", pos.X, pos.Y);
 
-				int tile = tBlock.cells[row * TBlockWidth + col];
+		drawCodex(COORD{ startPos.X, startPos.Y }, tBlock);
+		drawGrid(COORD{ startPos.X + TBlockDim.X + startPos.X, startPos.Y}, grid, tBlock);
+		drawOldGrid(COORD{ startPos.X + TBlockDim.X + startPos.X + (short)grid.width + startPos.X, startPos.Y}, oldGrid);
 
-				if (tile >= 0)
-				{
-					printf("%d", tile);
-				}
-				else
-				{
-					printf(" ");
-				}
-			}
-
-			printf("\n");
-		}
-
-		GoToPos(7, 0);
-		
-		SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_GREEN | FOREGROUND_BLUE);
-
-		printf("CellBlock\n");
-
-		for (int row = 0;
-			row < CellCount;
-			row++)
-		{
-			for (int col = 0;
-				col < CellCount;
-				col++)
-			{
-				GoToPos(startPos.X + TBlockDim.X + spacing.X + col, startPos.Y + spacing.Y + row);
-
-				if (col >= pos.X && col < pos.X + TBlockWidth &&
-					row >= pos.Y && row < pos.Y + TBlockHeight)
-				{
-					int blockRow = row - pos.Y;
-					int blockCol = col - pos.X;
-					int tileID = tBlock.cells[(blockRow)* TBlockWidth + (blockCol)];
-					if (tileID >= 0)
-					{
-						SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_RED);
-						printf("%d", tileID);
-					}
-					else
-					{
-						SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_GREEN | FOREGROUND_BLUE);
-						printf("%d", grid.cells[row * CellCount + col]);
-					}
-				}
-				else
-				{
-					SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_GREEN | FOREGROUND_BLUE);
-					printf("%d", grid.cells[row * CellCount + col]);
-				}
-			}
-			printf("\n");
-		}
-
-		Sleep(50);
+		Sleep(100);
 	}
 	
 	return 0;
