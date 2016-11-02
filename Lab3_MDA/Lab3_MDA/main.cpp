@@ -3,18 +3,21 @@ Name: George Wulfers
 Class: Adv Prog Concepts
 */
 
-// TODO(George): Separate things into separate files.
-// TOOD(George): Is this the best way to do this?
+#define ArrayCount(a) (sizeof(a) / sizeof(a[0]))
 
 #include <iostream>
 #include <random>
 #include <Windows.h>
 
-#define CellCount 6
-#define TBlockWidth 3
-#define TBlockHeight 2
-
+#define RED FOREGROUND_RED
+#define GREEN FOREGROUND_GREEN
+#define BLUE FOREGROUND_BLUE
+#define RED FOREGROUND_RED
 COORD pos = { 0, 0 };
+
+#include "Grid.h"
+
+HANDLE consoleOut;
 
 void GoToPos(int X, int Y)
 {
@@ -22,92 +25,15 @@ void GoToPos(int X, int Y)
 	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), pos);
 }
 
-class TBlock
+bool isKeyDown(unsigned int vkCode)
 {
-public:
-	TBlock()
-	{
-		width = TBlockWidth;
-		height = TBlockHeight;
-	}
-	~TBlock() { }
+	return (bool)(GetKeyState(vkCode) & 0x80000);
+}
 
-	inline void Initialize()
-	{
-		cells[0 * width + 0] = 0;
-		cells[0 * width + 1] = 1;
-		cells[0 * width + 2] = 1;
-
-		cells[1 * width + 0] = -1;
-		cells[1 * width + 1] = 1;
-		cells[1 * width + 2] = -1;
-	}
-
-	int width;
-	int height;
-	int cells[TBlockWidth * TBlockHeight];
-};
-
-class Grid
+void SetDrawColor(unsigned int colors)
 {
-public:
-	Grid()
-	{
-		width = height = CellCount;
-	}
-
-	~Grid() { }
-
-	inline void Initialize()
-	{
-		for (int row = 0;
-			row < CellCount;
-			row++)
-		{
-			for (int col = 0;
-				col < CellCount;
-				col++)
-			{
-				cells[row * CellCount + col] = rand() % 2;
-			}
-		}
-	}
-
-	inline bool flipCell(TBlock t)
-	{
-		int flipCount = 0;
-
-		for (int row = pos.Y;
-			row < pos.Y + 2;
-			row++)
-		{
-			for (int col = pos.X;
-				col < pos.X + 3;
-				col++)
-			{
-				int cellTile = cells[row * CellCount + col];
-				int blockTile = t.cells[(row - pos.Y) * TBlockWidth + (col - pos.X)];
-
-				if (cellTile == 0 && blockTile == 1)
-				{
-					flipCount++;
-					cells[row * CellCount + col] = blockTile;
-				}
-				else if (cellTile == 1 && blockTile == 0)
-				{
-					flipCount++;
-					cells[row * CellCount + col] = blockTile;
-				}
-			}
-		}
-
-		return (flipCount != 0);
-	}
-
-	int width;
-	int height;
-	int cells[CellCount * CellCount];
-};
+	SetConsoleTextAttribute(consoleOut, colors);
+}
 
 void drawGrid(COORD location, Grid grid, TBlock tBlock)
 {
@@ -129,18 +55,18 @@ void drawGrid(COORD location, Grid grid, TBlock tBlock)
 				int tileID = tBlock.cells[(blockRow)* TBlockWidth + (blockCol)];
 				if (tileID >= 0)
 				{
-					SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_RED);
+					SetDrawColor(FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_RED);
 					printf("%d", tileID);
 				}
 				else
 				{
-					SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_GREEN | FOREGROUND_BLUE);
+					SetDrawColor(FOREGROUND_GREEN | FOREGROUND_BLUE);
 					printf("%d", grid.cells[row * CellCount + col]);
 				}
 			}
 			else
 			{
-				SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_GREEN | FOREGROUND_BLUE);
+				SetDrawColor(FOREGROUND_GREEN | FOREGROUND_BLUE);
 				printf("%d", grid.cells[row * CellCount + col]);
 			}
 		}
@@ -160,7 +86,7 @@ void drawOldGrid(COORD pos, Grid grid)
 		{
 			GoToPos(pos.X + col, pos.Y + row);
 
-			SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_RED | FOREGROUND_BLUE);
+			SetDrawColor(FOREGROUND_RED | FOREGROUND_BLUE);
 			printf("%d", grid.cells[row * CellCount + col]);
 		}
 		printf("\n");
@@ -213,17 +139,16 @@ void drawCodex(COORD location, TBlock tBlock)
 	}
 }
 
-bool isKeyDown(unsigned int vkCode)
-{
-	return (bool)(GetKeyState(vkCode) & 0x80000);
-}
-
 int main()
 {
 	srand(0);
 
 	Grid grid;
 	Grid oldGrid;
+
+	consoleOut = GetStdHandle(STD_OUTPUT_HANDLE);
+	CONSOLE_SCREEN_BUFFER_INFO csbi = {};
+	GetConsoleScreenBufferInfo(consoleOut, &csbi);
 
 	grid.Initialize();
 
@@ -239,10 +164,10 @@ int main()
 
 	GoToPos(infoStart.X, infoStart.Y);
 
-	SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_BLUE | FOREGROUND_RED | FOREGROUND_GREEN);
+	
 	printf("INFO: ESC to exit. WASD to move codex. ENTER/RETURN to apply codex. R reset grid cells.");
 
-	SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_RED);
+	SetDrawColor(FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_RED);
 
 	GoToPos(0, 0);
 
@@ -250,13 +175,13 @@ int main()
 
 	GoToPos(7, 0);
 
-	SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_GREEN | FOREGROUND_BLUE);
+	SetDrawColor(FOREGROUND_GREEN | FOREGROUND_BLUE);
 
 	printf("CellBlock\n");
 
 	GoToPos(17, 0);
 
-	SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_RED | FOREGROUND_BLUE);
+	SetDrawColor(FOREGROUND_RED | FOREGROUND_BLUE);
 
 	printf("OldCellBlock\n");
 
@@ -320,7 +245,7 @@ int main()
 		}
 
 		// DRAW CODE
-		SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_RED);
+		SetDrawColor(FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_RED);
 
 		GoToPos(0, 1);
 		printf("Pos: (%d, %d)", pos.X, pos.Y);
